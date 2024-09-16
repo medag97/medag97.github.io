@@ -1,0 +1,17 @@
+[
+    {
+        "sensor_name": "Temperature",
+        "value": "22°C",
+        "timestamp": "2024-09-16T10:45:00Z"
+    },
+    {
+        "sensor_name": "Humidity",
+        "value": "65%",
+        "timestamp": "2024-09-16T10:45:00Z"
+    },
+    {
+        "sensor_name": "Pressure",
+        "value": "1015 hPa",
+        "timestamp": "2024-09-16T10:45:00Z"
+    }
+]
