@@ -36,6 +36,8 @@
             border-radius: 5px;
         }
     </style>
+    <!-- Include MQTT.js library -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
     <h1>Live Sensor Data from TTN (esp2)</h1>
@@ -44,36 +46,37 @@
     </div>
 
     <script>
-        // Your TTN API key
-        const apiKey = 'NNSXS.5F26JBI7N2I6MTUVVM7TKKJEWGIIB3E4KYQCZQY.GVUEBIOW4D3VKPQD2DHNRVPFSPCIWN5FXS43YVBCFODOC3S44GVA';
+        // MQTT connection options using your provided credentials
+        const options = {
+            connectTimeout: 4000,
+            clientId: 'mqttjs_' + Math.random().toString(16).substr(2, 8),  // Unique client ID
+            username: 'bme280-hs@lorahs', // MQTT Username
+            password: 'NNSXS.7KLWI6GTZ62DN67YSBPCTRKP5IU5HXRR72F45GY.C2DH3PWZKWLS2VU7LDRAV7UC3DIHFNQVBIPOZN5ZR6AZAFSZMWLA', // MQTT Password
+            keepalive: 60,  // Keep alive interval in seconds
+            clean: true  // Clean session
+        };
 
-        // The device ID for your end device (esp2)
-        const deviceId = 'esp2';
+        // Connect to TTN's MQTT server (WebSocket over TLS)
+        const client = mqtt.connect('wss://eu2.cloud.thethings.industries:8883', options);
 
-        // Function to retrieve data from TTN
-        async function fetchTTNData() {
-            const url = `https://lorahs.eu2.cloud.thethings.industries/api/v3/as/applications/bme280-hs/devices/${deviceId}/up`;
-
-            try {
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                // Check if the response is successful
-                if (response.ok) {
-                    const data = await response.json();
-                    displayData(data);
+        client.on('connect', () => {
+            console.log('Connected to TTN');
+            // Subscribe to the topic for your device
+            const topic = 'v3/bme280-hs@lorahs/devices/esp2/up';  // Adjust the topic format as needed
+            client.subscribe(topic, (err) => {
+                if (!err) {
+                    console.log('Subscribed to topic:', topic);
                 } else {
-                    console.error('Error fetching TTN data:', response.status);
+                    console.error('Subscription error:', err);
                 }
-            } catch (error) {
-                console.error('Network error:', error);
-            }
-        }
+            });
+        });
+
+        client.on('message', (topic, message) => {
+            // Parse the message and display data
+            const data = JSON.parse(message.toString());
+            displayData(data);
+        });
 
         // Function to display data on the page
         function displayData(data) {
@@ -85,16 +88,14 @@
             for (let key in payload) {
                 const div = document.createElement('div');
                 div.classList.add('data-item');
-                div.innerHTML = `<strong>${key}:</strong> ${payload[key]} (Last updated: ${new Date(data.uplink_message.received_at).toLocaleTimeString()})`;
+                div.innerHTML = `<strong>${key}:</strong> ${payload[key]} (Last updated: ${new Date(data.received_at).toLocaleTimeString()})`;
                 container.appendChild(div);
             }
         }
 
-        // Poll data every 5 seconds
-        setInterval(fetchTTNData, 5000);
-
-        // Fetch data initially when page loads
-        fetchTTNData();
+        client.on('error', (err) => {
+            console.error('Connection error:', err);
+        });
     </script>
 </body>
 </html>
