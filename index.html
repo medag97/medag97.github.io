@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Sensor Data from TTN</title>
+    <title>Stored Sensor Data from TTN</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -36,66 +36,69 @@
             border-radius: 5px;
         }
     </style>
-    <!-- Include MQTT.js library -->
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
-    <h1>Live Sensor Data from TTN (esp2)</h1>
+    <h1>Stored Sensor Data from TTN (esp2)</h1>
     <div id="sensor-data" class="sensor-data">
         <!-- Sensor data will appear here -->
     </div>
 
     <script>
-        // MQTT connection options using your provided credentials
-        const options = {
-            connectTimeout: 4000,
-            clientId: 'mqttjs_' + Math.random().toString(16).substr(2, 8),  // Unique client ID
-            username: 'bme280-hs@lorahs', // MQTT Username
-            password: 'NNSXS.7KLWI6GTZ62DN67YSBPCTRKP5IU5HXRR72F45GY.C2DH3PWZKWLS2VU7LDRAV7UC3DIHFNQVBIPOZN5ZR6AZAFSZMWLA', // MQTT Password
-            keepalive: 60,  // Keep alive interval in seconds
-            clean: true  // Clean session
-        };
+        // Your TTN API key
+        const apiKey = 'NNSXS.7KLWI6GTZ62DN67YSBPCTRKP5IU5HXRR72F45GY.C2DH3PWZKWLS2VU7LDRAV7UC3DIHFNQVBIPOZN5ZR6AZAFSZMWLA';
+        
+        // The application ID and device ID
+        const applicationId = 'bme280-hs';
+        const deviceId = 'esp2';  // Replace with your device ID
 
-        // Connect to TTN's MQTT server (WebSocket over TLS)
-        const client = mqtt.connect('wss://eu2.cloud.thethings.industries:8883', options);
+        // The API endpoint to retrieve stored data for a specific device
+        const apiUrl = `https://lorahs.eu2.cloud.thethings.industries/api/v3/as/applications/${applicationId}/devices/${deviceId}/packages/storage/uplink_message`;
 
-        client.on('connect', () => {
-            console.log('Connected to TTN');
-            // Subscribe to the topic for your device
-            const topic = 'v3/bme280-hs@lorahs/devices/esp2/up';  // Adjust the topic format as needed
-            client.subscribe(topic, (err) => {
-                if (!err) {
-                    console.log('Subscribed to topic:', topic);
+        // Function to retrieve data from TTN storage
+        async function fetchTTNData() {
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                // Check if the response is successful
+                if (response.ok) {
+                    const data = await response.json();
+                    displayData(data);
                 } else {
-                    console.error('Subscription error:', err);
+                    console.error('Error fetching TTN data:', response.status);
                 }
-            });
-        });
-
-        client.on('message', (topic, message) => {
-            // Parse the message and display data
-            const data = JSON.parse(message.toString());
-            displayData(data);
-        });
+            } catch (error) {
+                console.error('Network error:', error);
+            }
+        }
 
         // Function to display data on the page
         function displayData(data) {
             const container = document.getElementById('sensor-data');
             container.innerHTML = ''; // Clear previous data
 
-            // Assuming the data contains uplink message and decoded payload
-            const payload = data.uplink_message.decoded_payload;
-            for (let key in payload) {
-                const div = document.createElement('div');
-                div.classList.add('data-item');
-                div.innerHTML = `<strong>${key}:</strong> ${payload[key]} (Last updated: ${new Date(data.received_at).toLocaleTimeString()})`;
-                container.appendChild(div);
-            }
+            // Loop through each uplink message and display it
+            data.forEach(uplink => {
+                const payload = uplink.result.uplink_message.decoded_payload;
+                const receivedAt = new Date(uplink.result.uplink_message.received_at).toLocaleTimeString();
+
+                // Display each key-value pair in the payload
+                for (let key in payload) {
+                    const div = document.createElement('div');
+                    div.classList.add('data-item');
+                    div.innerHTML = `<strong>${key}:</strong> ${payload[key]} (Received at: ${receivedAt})`;
+                    container.appendChild(div);
+                }
+            });
         }
 
-        client.on('error', (err) => {
-            console.error('Connection error:', err);
-        });
+        // Fetch data when page loads
+        fetchTTNData();
     </script>
 </body>
 </html>
